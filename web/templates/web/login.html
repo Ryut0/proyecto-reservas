@@ -1,0 +1,97 @@
+{% extends "web/base.html" %}
+{% block title %}Login — Reservas Deportivas{% endblock %}
+
+{% block content %}
+<div style="max-width:900px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;" class="slide-up">
+
+  <div class="card-hero" style="padding:2.5rem;min-height:480px;display:flex;flex-direction:column;gap:1.25rem;">
+    <div style="position:relative;z-index:1;flex:1;display:flex;flex-direction:column;">
+      <div style="width:56px;height:56px;background:rgba(255,255,255,.12);border-radius:1rem;display:flex;align-items:center;justify-content:center;font-size:1.75rem;margin-bottom:1.5rem;border:1px solid rgba(255,255,255,.15);">🏟️</div>
+      <h1 style="font-size:1.9rem;font-weight:800;color:white;line-height:1.15;margin-bottom:.75rem;">Bienvenido de<br/>vuelta al campo</h1>
+      <p style="color:rgba(255,255,255,.6);font-size:.9rem;line-height:1.65;margin-bottom:auto;">Inicia sesión para gestionar tus reservas deportivas.</p>
+      <div style="display:flex;flex-direction:column;gap:.75rem;margin-top:2rem;">
+        <div style="display:flex;align-items:center;gap:.625rem;">
+          <span style="width:28px;height:28px;background:rgba(255,255,255,.1);border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:.85rem;">👑</span>
+          <span style="color:rgba(255,255,255,.7);font-size:.82rem;">Admins gestionan canchas, usuarios y reservas</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:.625rem;">
+          <span style="width:28px;height:28px;background:rgba(255,255,255,.1);border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:.85rem;">👤</span>
+          <span style="color:rgba(255,255,255,.7);font-size:.82rem;">Usuarios crean y ven sus propias reservas</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:.625rem;">
+          <span style="width:28px;height:28px;background:rgba(255,255,255,.1);border-radius:.5rem;display:flex;align-items:center;justify-content:center;font-size:.85rem;">🔒</span>
+          <span style="color:rgba(255,255,255,.7);font-size:.82rem;">Token cifrado en tu navegador</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:2.5rem;">
+    <div style="margin-bottom:2rem;">
+      <h2 style="font-size:1.375rem;font-weight:800;color:#050d1a;margin-bottom:.3rem;">Iniciar sesión</h2>
+      <p style="font-size:.85rem;color:#94a3b8;">Ingresa tus credenciales para continuar</p>
+    </div>
+
+    <div id="login-alert"   class="alert alert-danger  hidden" style="margin-bottom:1.25rem;"></div>
+    <div id="login-success" class="alert alert-success hidden" style="margin-bottom:1.25rem;"></div>
+
+    <form id="login-form" style="display:flex;flex-direction:column;gap:1.125rem;">
+      <div class="form-group">
+        <label class="form-label">Usuario</label>
+        <input class="form-control" type="text" id="username-input" placeholder="nombre de usuario" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input class="form-control" type="password" id="password-input" placeholder="••••••••" required />
+      </div>
+      <button class="btn btn-primary btn-full btn-lg" type="submit" id="login-btn" style="margin-top:.5rem;">
+        Ingresar a mi cuenta
+      </button>
+    </form>
+
+    <hr class="divider" />
+    <p style="text-align:center;font-size:.85rem;color:#64748b;">
+      ¿Sin cuenta? <a href="/registro/" style="color:var(--c-azure);font-weight:600;text-decoration:none;">Créala gratis →</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const loginBtn = document.getElementById("login-btn");
+
+  function showError(msg)   { const a=document.getElementById("login-alert");   a.textContent=msg; a.classList.remove("hidden"); document.getElementById("login-success").classList.add("hidden"); }
+  function showSuccess(msg) { const a=document.getElementById("login-success"); a.textContent=msg; a.classList.remove("hidden"); document.getElementById("login-alert").classList.add("hidden"); }
+
+  document.getElementById("login-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const username = document.getElementById("username-input").value.trim();
+    const password = document.getElementById("password-input").value.trim();
+    if (!username || !password) { showError("Debes ingresar usuario y contraseña."); return; }
+
+    loginBtn.innerHTML = '<span class="spinner" style="border-color:white;border-top-color:transparent;"></span> Ingresando…';
+    loginBtn.disabled = true;
+
+    fetch(`${API_BASE}auth/login/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    })
+      .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.detail || "Credenciales inválidas."); return d; })
+      .then(d => {
+        setToken(d.token);
+        setRole(d.role || "usuario");
+        setUsername(d.username || username);
+        updateAuthUI();
+        showSuccess(d.role === "admin" ? "✅ Bienvenido, Admin. Redirigiendo…" : "✅ Login correcto. Redirigiendo…");
+        setTimeout(() => window.location.href = d.role === "admin" ? "/admin-panel/" : "/reservas/", 700);
+      })
+      .catch(err => {
+        showError(err.message);
+        loginBtn.innerHTML = "Ingresar a mi cuenta";
+        loginBtn.disabled = false;
+      });
+  });
+</script>
+{% endblock %}

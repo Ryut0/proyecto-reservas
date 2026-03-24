@@ -1,0 +1,313 @@
+{% extends "web/base.html" %}
+{% block title %}Canchas — Reservas Deportivas{% endblock %}
+{% block nav_canchas %}active{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<div class="hero-section slide-up">
+  <div style="position:relative;z-index:1;">
+    <span class="badge" style="background:rgba(94,165,248,.18);color:#93c5fd;margin-bottom:.75rem;display:inline-block;">
+      🏟️ Instalaciones disponibles
+    </span>
+    <h1 style="font-size:2.25rem;font-weight:800;color:white;margin:.5rem 0 .75rem;line-height:1.1;">
+      Elige tu cancha<br/>y juega hoy
+    </h1>
+    <p style="color:rgba(255,255,255,.65);font-size:.95rem;max-width:480px;margin-bottom:1.5rem;">
+      Explora todas nuestras instalaciones. Fútbol, tenis, baloncesto y más.
+    </p>
+    <a class="btn btn-primary btn-lg hidden" href="/reservas/nueva/" data-auth="in">Reservar ahora →</a>
+    <a class="btn btn-ghost btn-lg" href="/login/" data-auth="out">Inicia sesión para reservar →</a>
+  </div>
+</div>
+
+<!-- Panel agregar cancha: solo admin -->
+<div id="admin-add-cancha" class="card hidden" style="padding:1.5rem;margin-bottom:1.5rem;">
+  <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem;">
+    <span style="font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;">⚙ Agregar nueva cancha</span>
+    <span class="badge" style="background:#fef9c3;color:#a16207;">👑 Solo Admin</span>
+  </div>
+  <div id="add-cancha-alert"   class="alert alert-danger  hidden" style="margin-bottom:.75rem;"></div>
+  <div id="add-cancha-success" class="alert alert-success hidden" style="margin-bottom:.75rem;"></div>
+
+  <form id="add-cancha-form" enctype="multipart/form-data">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:1rem;align-items:end;">
+      <div>
+        <label class="form-label">Nombre</label>
+        <input class="form-control" type="text" id="new-cancha-nombre" placeholder="ej. Cancha Norte" required />
+      </div>
+      <div>
+        <label class="form-label">Tipo</label>
+        <select class="form-select" id="new-cancha-tipo" required>
+          <option value="">— Tipo —</option>
+          <option value="futbol">⚽ Fútbol</option>
+          <option value="tenis">🎾 Tenis</option>
+          <option value="baloncesto">🏀 Baloncesto</option>
+          <option value="voleibol">🏐 Voleibol</option>
+          <option value="padel">🏓 Pádel</option>
+          <option value="otro">🏅 Otro</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Foto de la cancha</label>
+        <input class="form-control" type="file" id="new-cancha-imagen"
+               accept="image/jpeg,image/png,image/webp"
+               style="padding:.45rem .75rem;cursor:pointer;" />
+        <span style="font-size:.72rem;color:#94a3b8;margin-top:.25rem;display:block;">JPG, PNG o WEBP. Opcional.</span>
+      </div>
+      <div>
+        <button class="btn btn-primary" type="submit" id="add-cancha-btn">+ Agregar</button>
+      </div>
+    </div>
+
+    <!-- Preview imagen -->
+    <div id="img-preview-wrap" style="margin-top:1rem;display:none;">
+      <label class="form-label">Vista previa</label>
+      <img id="img-preview" src="" alt="preview"
+           style="width:120px;height:80px;object-fit:cover;border-radius:.75rem;border:2px solid #e2e8f0;" />
+    </div>
+  </form>
+</div>
+
+<!-- Filtros -->
+<div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:1.25rem;" class="slide-up stagger-1">
+  <span style="font-size:.78rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">Filtrar:</span>
+  <button class="filter-btn active" onclick="filtrarCanchas('todos',this)">Todas</button>
+  <button class="filter-btn" onclick="filtrarCanchas('futbol',this)">⚽ Fútbol</button>
+  <button class="filter-btn" onclick="filtrarCanchas('tenis',this)">🎾 Tenis</button>
+  <button class="filter-btn" onclick="filtrarCanchas('baloncesto',this)">🏀 Baloncesto</button>
+  <button class="filter-btn" onclick="filtrarCanchas('voleibol',this)">🏐 Voleibol</button>
+  <button class="filter-btn" onclick="filtrarCanchas('padel',this)">🏓 Pádel</button>
+</div>
+
+<style>
+  .filter-btn {
+    padding:.35rem .85rem;border-radius:999px;border:1.5px solid #e2e8f0;
+    background:white;font-size:.8rem;font-weight:600;color:#64748b;
+    cursor:pointer;transition:all .18s;font-family:'DM Sans',sans-serif;
+  }
+  .filter-btn:hover,.filter-btn.active {
+    background:var(--c-azure);color:white;border-color:var(--c-azure);
+    box-shadow:0 4px 12px rgba(31,111,235,.3);
+  }
+  .cancha-img {
+    width:100%;height:140px;object-fit:cover;border-radius:.75rem .75rem 0 0;
+    background:#f1f5f9;display:block;
+  }
+  .cancha-img-placeholder {
+    width:100%;height:140px;border-radius:.75rem .75rem 0 0;
+    background:linear-gradient(135deg,#f1f5f9,#e2e8f0);
+    display:flex;align-items:center;justify-content:center;font-size:2.5rem;
+  }
+  .cancha-card-v2 {
+    background:white;border-radius:1rem;border:1.5px solid #f1f5f9;
+    overflow:hidden;transition:all .22s cubic-bezier(.34,1.56,.64,1);
+    display:flex;flex-direction:column;
+  }
+  .cancha-card-v2:hover {
+    border-color:rgba(31,111,235,.3);
+    box-shadow:0 12px 32px -4px rgba(31,111,235,.18);
+    transform:translateY(-3px);
+  }
+  .cancha-card-body { padding:1rem; flex:1; }
+  .cancha-card-footer { padding:.75rem 1rem;border-top:1px solid #f8fafc;display:flex;gap:.5rem; }
+</style>
+
+<div id="canchas-alert" class="alert alert-danger hidden" style="margin-bottom:1rem;"></div>
+<div id="canchas-loading" style="display:flex;justify-content:center;align-items:center;gap:.75rem;padding:3rem;color:#94a3b8;">
+  <span class="spinner"></span>
+  <span style="font-size:.875rem;">Cargando canchas…</span>
+</div>
+
+<div id="canchas-grid" style="display:none;">
+  <div id="canchas-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.25rem;margin-bottom:2rem;"></div>
+
+  <div class="card" style="padding:.25rem;">
+    <div style="padding:1rem 1.5rem .75rem;border-bottom:1px solid #f1f5f9;">
+      <span style="font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;">Resumen de instalaciones</span>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Foto</th><th>Nombre</th><th>Tipo</th><th>Acción</th></tr></thead>
+      <tbody id="canchas-body"></tbody>
+    </table>
+    <div id="canchas-empty" class="empty-state hidden">
+      <div class="empty-state-icon">🏟️</div>
+      <p class="empty-state-title">Sin canchas registradas</p>
+      <p class="empty-state-desc">Un administrador debe agregar canchas primero.</p>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SPORT_ICONS = {futbol:'⚽',tenis:'🎾',baloncesto:'🏀',voleibol:'🏐',padel:'🏓',otro:'🏅'};
+const SPORT_BG    = {futbol:'#dcfce7',tenis:'#fef9c3',baloncesto:'#ffedd5',voleibol:'#ede9fe',padel:'#cffafe',otro:'#f1f5f9'};
+const SPORT_CL    = {futbol:'#15803d',tenis:'#a16207',baloncesto:'#c2410c',voleibol:'#7c3aed',padel:'#0e7490',otro:'#475569'};
+
+let allCanchas = [];
+
+function sportBadge(tipo, label) {
+  return `<span class="badge" style="background:${SPORT_BG[tipo]||SPORT_BG.otro};color:${SPORT_CL[tipo]||SPORT_CL.otro};">${SPORT_ICONS[tipo]||'🏅'} ${label}</span>`;
+}
+
+function renderCards(list) {
+  const grid  = document.getElementById('canchas-cards');
+  const tbody = document.getElementById('canchas-body');
+  const empty = document.getElementById('canchas-empty');
+  const isAdmin  = getRole() === 'admin';
+  const hasToken = !!getToken();
+  grid.innerHTML = ''; tbody.innerHTML = '';
+
+  if (!list.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  list.forEach((c, i) => {
+    const tipo = c.tipo || 'otro';
+    const bg   = SPORT_BG[tipo]  || SPORT_BG.otro;
+    const cl   = SPORT_CL[tipo]  || SPORT_CL.otro;
+    const icon = SPORT_ICONS[tipo]|| '🏅';
+
+    // ── Card con imagen ──
+    const card = document.createElement('div');
+    card.className = 'cancha-card-v2 fade-in';
+    card.style.animationDelay = `${i*.06}s`;
+
+    const imgHtml = c.imagen_url
+      ? `<img class="cancha-img" src="${c.imagen_url}" alt="${c.nombre}" loading="lazy" />`
+      : `<div class="cancha-img-placeholder" style="background:linear-gradient(135deg,${bg},${bg}cc);">
+           <span style="font-size:2.5rem;">${icon}</span>
+         </div>`;
+
+    card.innerHTML = `
+      ${imgHtml}
+      <div class="cancha-card-body">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;color:#050d1a;font-size:.95rem;margin-bottom:.35rem;">${c.nombre}</div>
+        ${sportBadge(tipo, c.tipo_display)}
+      </div>
+      <div class="cancha-card-footer">
+        ${hasToken
+          ? `<a class="btn btn-primary btn-sm" href="/reservas/nueva/" style="flex:1;text-align:center;">Reservar</a>`
+          : `<a class="btn btn-outline btn-sm" href="/login/" style="flex:1;text-align:center;">Login para reservar</a>`
+        }
+        ${isAdmin ? `<button onclick="deleteCancha(${c.id})" class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:none;" title="Eliminar">✕</button>` : ''}
+      </div>
+    `;
+    grid.appendChild(card);
+
+    // ── Fila tabla ──
+    const tr = document.createElement('tr');
+    const thumbHtml = c.imagen_url
+      ? `<img src="${c.imagen_url}" style="width:48px;height:36px;object-fit:cover;border-radius:.4rem;" />`
+      : `<span style="font-size:1.4rem;">${icon}</span>`;
+    tr.innerHTML = `
+      <td style="width:60px;">${thumbHtml}</td>
+      <td>${c.nombre}</td>
+      <td>${sportBadge(tipo, c.tipo_display)}</td>
+      <td>
+        ${hasToken
+          ? `<a class="btn btn-outline btn-sm" href="/reservas/nueva/">Reservar</a>`
+          : `<a class="btn btn-outline btn-sm" href="/login/">Login</a>`
+        }
+        ${isAdmin ? `<button onclick="deleteCancha(${c.id})" class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:none;margin-left:.5rem;">Eliminar</button>` : ''}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function filtrarCanchas(tipo, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCards(tipo === 'todos' ? allCanchas : allCanchas.filter(c => (c.tipo||'otro') === tipo));
+}
+
+function deleteCancha(id) {
+  if (!confirm('¿Eliminar esta cancha?')) return;
+  fetch(`${API_BASE}canchas/${id}/`, {
+    method: 'DELETE',
+    headers: { Authorization: `Token ${getToken()}` }
+  }).then(() => {
+    allCanchas = allCanchas.filter(c => c.id !== id);
+    renderCards(allCanchas);
+  }).catch(() => alert('Error al eliminar la cancha.'));
+}
+
+// Preview imagen antes de subir
+document.getElementById('new-cancha-imagen').addEventListener('change', function() {
+  const file = this.files[0];
+  const wrap = document.getElementById('img-preview-wrap');
+  const prev = document.getElementById('img-preview');
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = e => { prev.src = e.target.result; wrap.style.display = 'block'; };
+    reader.readAsDataURL(file);
+  } else {
+    wrap.style.display = 'none';
+  }
+});
+
+// Mostrar panel admin
+document.addEventListener('DOMContentLoaded', () => {
+  if (getRole() === 'admin') {
+    document.getElementById('admin-add-cancha').classList.remove('hidden');
+  }
+});
+
+// Formulario agregar cancha con imagen (multipart)
+document.getElementById('add-cancha-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const nombre   = document.getElementById('new-cancha-nombre').value.trim();
+  const tipo     = document.getElementById('new-cancha-tipo').value;
+  const imgFile  = document.getElementById('new-cancha-imagen').files[0];
+  const errEl    = document.getElementById('add-cancha-alert');
+  const okEl     = document.getElementById('add-cancha-success');
+  const btn      = document.getElementById('add-cancha-btn');
+
+  if (!nombre || !tipo) { errEl.textContent = 'Nombre y tipo son obligatorios.'; errEl.classList.remove('hidden'); return; }
+
+  const formData = new FormData();
+  formData.append('nombre', nombre);
+  formData.append('tipo', tipo);
+  if (imgFile) formData.append('imagen', imgFile);
+
+  btn.innerHTML = '<span class="spinner" style="border-color:white;border-top-color:transparent;width:14px;height:14px;"></span>';
+  btn.disabled  = true;
+
+  fetch(`${API_BASE}canchas/`, {
+    method: 'POST',
+    headers: { Authorization: `Token ${getToken()}` },
+    body: formData,   // NO Content-Type — el browser lo pone automáticamente con boundary
+  })
+    .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(Object.values(d).flat().join(' ')); return d; })
+    .then(nueva => {
+      allCanchas.push(nueva);
+      renderCards(allCanchas);
+      document.getElementById('add-cancha-form').reset();
+      document.getElementById('img-preview-wrap').style.display = 'none';
+      okEl.textContent = `✅ Cancha "${nueva.nombre}" agregada.`;
+      okEl.classList.remove('hidden'); errEl.classList.add('hidden');
+      setTimeout(() => okEl.classList.add('hidden'), 3000);
+    })
+    .catch(err => { errEl.textContent = err.message; errEl.classList.remove('hidden'); okEl.classList.add('hidden'); })
+    .finally(() => { btn.innerHTML = '+ Agregar'; btn.disabled = false; });
+});
+
+// Cargar canchas
+fetch(`${API_BASE}canchas/`)
+  .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+  .then(data => {
+    allCanchas = data;
+    document.getElementById('canchas-loading').style.display = 'none';
+    document.getElementById('canchas-grid').style.display    = 'block';
+    renderCards(data);
+  })
+  .catch(() => {
+    document.getElementById('canchas-loading').style.display = 'none';
+    const al = document.getElementById('canchas-alert');
+    al.textContent = 'Error al cargar las canchas.';
+    al.classList.remove('hidden');
+  });
+</script>
+{% endblock %}

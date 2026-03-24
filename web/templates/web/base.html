@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Reservas Deportivas{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'main.css' %}" />
+  {% block head %}{% endblock %}
+</head>
+<body class="fade-in">
+
+  <nav class="navbar">
+    <a class="navbar-brand" href="/">
+      <span class="brand-icon">⚽</span>
+      Reservas
+    </a>
+    <div class="navbar-links">
+      <!-- Badge rol -->
+      <span id="role-chip" class="hidden" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:white;font-size:.72rem;font-weight:700;padding:.2rem .65rem;border-radius:999px;display:flex;align-items:center;gap:.35rem;"></span>
+
+      <a class="nav-link {% block nav_canchas %}{% endblock %}" href="/">Canchas</a>
+      <a class="nav-link {% block nav_reservas %}{% endblock %}" href="/reservas/">Mis Reservas</a>
+      <a class="nav-link {% block nav_nueva %}{% endblock %}" href="/reservas/nueva/">Nueva Reserva</a>
+
+      <!-- Solo admin -->
+      <a class="nav-link {% block nav_admin %}{% endblock %} hidden" href="/admin-panel/" data-auth="admin"
+         style="color:#fbbf24 !important;">⚙ Admin</a>
+
+      <!-- Sin sesión -->
+      <a class="nav-link" href="/registro/" data-auth="out">Registrarse</a>
+      <a class="nav-link" href="/login/"    data-auth="out">Login</a>
+
+      <!-- Con sesión -->
+      <a class="nav-link hidden" href="#" id="logout-link" data-auth="in">Salir</a>
+    </div>
+  </nav>
+
+  <main class="app-shell">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer style="text-align:center;padding:1.5rem;font-size:.78rem;color:#94a3b8;border-top:1px solid #f1f5f9;">
+    © 2025 Reservas Deportivas
+  </footer>
+
+  <script>
+    const API_BASE = "/api/";
+    function getToken()   { return localStorage.getItem("authToken") || ""; }
+    function getRole()    { return localStorage.getItem("userRole")  || ""; }
+    function getUsername(){ return localStorage.getItem("username")  || ""; }
+    function setToken(t)  { if (t) localStorage.setItem("authToken", t); }
+    function setRole(r)   { if (r) localStorage.setItem("userRole",  r); }
+    function setUsername(u){ if (u) localStorage.setItem("username", u); }
+    function clearSession(){ localStorage.removeItem("authToken"); localStorage.removeItem("userRole"); localStorage.removeItem("username"); }
+
+    function updateAuthUI() {
+      const token    = getToken();
+      const role     = getRole();
+      const username = getUsername();
+      const chip     = document.getElementById("role-chip");
+      const authIn   = document.querySelectorAll("[data-auth='in']");
+      const authOut  = document.querySelectorAll("[data-auth='out']");
+      const authAdmin= document.querySelectorAll("[data-auth='admin']");
+
+      if (token) {
+        // Mostrar badge de rol
+        if (chip) {
+          chip.classList.remove("hidden");
+          chip.innerHTML = role === "admin"
+            ? `👑 ${username || "Admin"}`
+            : `👤 ${username || "Usuario"}`;
+          chip.style.background = role === "admin"
+            ? "rgba(251,191,36,.2)" : "rgba(255,255,255,.12)";
+          chip.style.borderColor = role === "admin"
+            ? "rgba(251,191,36,.4)" : "rgba(255,255,255,.2)";
+          chip.style.color = role === "admin" ? "#fbbf24" : "white";
+        }
+        authIn.forEach(el  => el.classList.remove("hidden"));
+        authOut.forEach(el => el.classList.add("hidden"));
+        // Mostrar enlace admin solo a admins
+        if (role === "admin") {
+          authAdmin.forEach(el => el.classList.remove("hidden"));
+        } else {
+          authAdmin.forEach(el => el.classList.add("hidden"));
+        }
+      } else {
+        chip?.classList.add("hidden");
+        authIn.forEach(el   => el.classList.add("hidden"));
+        authOut.forEach(el  => el.classList.remove("hidden"));
+        authAdmin.forEach(el=> el.classList.add("hidden"));
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      updateAuthUI();
+      document.getElementById("logout-link")?.addEventListener("click", e => {
+        e.preventDefault(); clearSession(); updateAuthUI();
+        window.location.href = "/login/";
+      });
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

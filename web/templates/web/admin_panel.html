@@ -1,0 +1,408 @@
+{% extends "web/base.html" %}
+{% block title %}Panel Admin — Reservas Deportivas{% endblock %}
+{% block nav_admin %}active{% endblock %}
+
+{% block content %}
+
+<!-- ── Guard: solo admin ── -->
+<div id="no-access" class="hidden" style="max-width:500px;margin:4rem auto;text-align:center;">
+  <div style="font-size:3rem;margin-bottom:1rem;">🔒</div>
+  <h2 style="font-size:1.5rem;font-weight:800;color:#050d1a;margin-bottom:.5rem;">Acceso restringido</h2>
+  <p style="color:#64748b;margin-bottom:1.5rem;">Solo los administradores pueden ver esta página.</p>
+  <a class="btn btn-primary" href="/">Volver al inicio</a>
+</div>
+
+<!-- ── Panel principal ── -->
+<div id="admin-content" class="hidden">
+
+  <!-- Header -->
+  <div class="section-header slide-up">
+    <div>
+      <h1 class="section-title">⚙ Panel de administración</h1>
+      <p class="section-subtitle">Gestiona usuarios, canchas, clientes y reservas.</p>
+    </div>
+    <span style="background:#fef9c3;color:#a16207;font-size:.8rem;font-weight:700;padding:.35rem .875rem;border-radius:999px;border:1px solid #fde68a;">
+      👑 Modo Admin
+    </span>
+  </div>
+
+  <!-- Stat cards -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem;" class="slide-up stagger-1">
+    <div class="card-soft stat-card">
+      <div class="stat-label">Usuarios</div>
+      <div class="stat-value" id="stat-usuarios">—</div>
+      <div class="stat-trend">registrados</div>
+    </div>
+    <div class="card-soft stat-card">
+      <div class="stat-label">Canchas</div>
+      <div class="stat-value" id="stat-canchas">—</div>
+      <div class="stat-trend">disponibles</div>
+    </div>
+    <div class="card-soft stat-card">
+      <div class="stat-label">Clientes</div>
+      <div class="stat-value" id="stat-clientes">—</div>
+      <div class="stat-trend">registrados</div>
+    </div>
+    <div class="card-soft stat-card">
+      <div class="stat-label">Reservas</div>
+      <div class="stat-value" id="stat-reservas">—</div>
+      <div class="stat-trend">en total</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:.5rem;margin-bottom:1.5rem;border-bottom:2px solid #f1f5f9;padding-bottom:0;" class="slide-up stagger-2">
+    <button class="tab-btn active" onclick="showTab('usuarios',this)">👥 Usuarios</button>
+    <button class="tab-btn" onclick="showTab('canchas',this)">🏟️ Canchas</button>
+    <button class="tab-btn" onclick="showTab('clientes',this)">🧑 Clientes</button>
+    <button class="tab-btn" onclick="showTab('reservas',this)">📅 Reservas</button>
+  </div>
+
+  <style>
+    .tab-btn {
+      padding:.6rem 1.25rem;border:none;background:none;cursor:pointer;
+      font-family:'DM Sans',sans-serif;font-size:.875rem;font-weight:600;color:#64748b;
+      border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .18s;
+    }
+    .tab-btn.active { color:var(--c-azure);border-bottom-color:var(--c-azure); }
+    .tab-btn:hover  { color:var(--c-azure); }
+    .tab-panel      { display:none; }
+    .tab-panel.active { display:block; animation: fade-in .3s ease; }
+  </style>
+
+  <!-- ── Tab: Usuarios ── -->
+  <div id="tab-usuarios" class="tab-panel active">
+    <div class="card" style="padding:.25rem;">
+      <div style="padding:1rem 1.5rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;">Todos los usuarios</span>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Usuario</th><th>Email</th><th>Rol actual</th><th>Cambiar rol</th></tr></thead>
+        <tbody id="users-body"></tbody>
+      </table>
+      <div id="users-empty" class="empty-state hidden"><div class="empty-state-icon">👥</div><p class="empty-state-title">Sin usuarios</p></div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Canchas ── -->
+  <div id="tab-canchas" class="tab-panel">
+    <div class="card" style="padding:1.5rem;margin-bottom:1rem;">
+      <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;color:#050d1a;">➕ Agregar cancha</h3>
+      <div id="cancha-alert" class="alert alert-danger hidden" style="margin-bottom:1rem;"></div>
+      <div id="cancha-success" class="alert alert-success hidden" style="margin-bottom:1rem;"></div>
+      <form id="cancha-form" enctype="multipart/form-data">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:1rem;align-items:end;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Nombre</label>
+            <input class="form-control" type="text" id="cancha-nombre" placeholder="ej. Cancha Norte" required />
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Tipo</label>
+            <select class="form-select" id="cancha-tipo" required>
+              <option value="">— Tipo —</option>
+              <option value="futbol">⚽ Fútbol</option>
+              <option value="tenis">🎾 Tenis</option>
+              <option value="baloncesto">🏀 Baloncesto</option>
+              <option value="voleibol">🏐 Voleibol</option>
+              <option value="padel">🏓 Pádel</option>
+              <option value="otro">🏅 Otro</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Foto (opcional)</label>
+            <input class="form-control" type="file" id="cancha-imagen"
+                   accept="image/jpeg,image/png,image/webp"
+                   style="padding:.45rem .75rem;cursor:pointer;" />
+          </div>
+          <button class="btn btn-primary" type="submit" id="admin-cancha-btn">Agregar</button>
+        </div>
+        <div id="admin-img-preview-wrap" style="margin-top:.75rem;display:none;">
+          <img id="admin-img-preview" src="" style="width:100px;height:70px;object-fit:cover;border-radius:.5rem;border:2px solid #e2e8f0;" />
+        </div>
+      </form>
+    </div>
+    <div class="card" style="padding:.25rem;">
+      <table class="data-table">
+        <thead><tr><th>Nombre</th><th>Tipo</th><th>Acción</th></tr></thead>
+        <tbody id="canchas-body"></tbody>
+      </table>
+      <div id="canchas-empty" class="empty-state hidden"><div class="empty-state-icon">🏟️</div><p class="empty-state-title">Sin canchas</p></div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Clientes ── -->
+  <div id="tab-clientes" class="tab-panel">
+    <div class="card" style="padding:1.5rem;margin-bottom:1rem;">
+      <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;color:#050d1a;">➕ Agregar cliente</h3>
+      <div id="cliente-alert"   class="alert alert-danger  hidden" style="margin-bottom:1rem;"></div>
+      <div id="cliente-success" class="alert alert-success hidden" style="margin-bottom:1rem;"></div>
+      <form id="cliente-form" style="display:grid;grid-template-columns:1fr 1fr auto;gap:1rem;align-items:end;">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Nombre</label>
+          <input class="form-control" type="text" id="cliente-nombre" placeholder="Nombre completo" required />
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Email</label>
+          <input class="form-control" type="email" id="cliente-email" placeholder="correo@ejemplo.com" required />
+        </div>
+        <button class="btn btn-primary" type="submit" id="admin-cancha-btn">Agregar</button>
+      </form>
+    </div>
+    <div class="card" style="padding:.25rem;">
+      <table class="data-table">
+        <thead><tr><th>Nombre</th><th>Email</th><th>Acción</th></tr></thead>
+        <tbody id="clientes-body"></tbody>
+      </table>
+      <div id="clientes-empty" class="empty-state hidden"><div class="empty-state-icon">🧑</div><p class="empty-state-title">Sin clientes</p></div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Reservas ── -->
+  <div id="tab-reservas" class="tab-panel">
+    <div class="card" style="padding:.25rem;">
+      <div style="padding:1rem 1.5rem;border-bottom:1px solid #f1f5f9;">
+        <span style="font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;">Todas las reservas</span>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Cliente</th><th>Cancha</th><th>Fecha</th><th>Horario</th><th>Creado por</th><th>Acción</th></tr></thead>
+        <tbody id="reservas-body"></tbody>
+      </table>
+      <div id="reservas-empty" class="empty-state hidden"><div class="empty-state-icon">📅</div><p class="empty-state-title">Sin reservas</p></div>
+    </div>
+  </div>
+
+</div><!-- /admin-content -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SPORT_ICONS  = { futbol:'⚽',tenis:'🎾',baloncesto:'🏀',voleibol:'🏐',padel:'🏓',otro:'🏅' };
+const SPORT_BG     = { futbol:'#dcfce7',tenis:'#fef9c3',baloncesto:'#ffedd5',voleibol:'#ede9fe',padel:'#cffafe',otro:'#f1f5f9' };
+const SPORT_CL     = { futbol:'#15803d',tenis:'#a16207',baloncesto:'#c2410c',voleibol:'#7c3aed',padel:'#0e7490',otro:'#475569' };
+
+function authHeaders() {
+  return { "Content-Type":"application/json", Authorization:`Token ${getToken()}` };
+}
+
+// ── Guard ──
+document.addEventListener("DOMContentLoaded", () => {
+  const role = getRole();
+  if (!getToken() || role !== "admin") {
+    document.getElementById("no-access").classList.remove("hidden");
+  } else {
+    document.getElementById("admin-content").classList.remove("hidden");
+    loadAll();
+  }
+});
+
+function showTab(name, btn) {
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById(`tab-${name}`).classList.add("active");
+  btn.classList.add("active");
+}
+
+// ── Load all ──
+function loadAll() {
+  loadUsers();
+  loadCanchas();
+  loadClientes();
+  loadReservas();
+}
+
+// ── Usuarios ──
+function loadUsers() {
+  fetch(`${API_BASE}admin/users/`, { headers: authHeaders() })
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById("stat-usuarios").textContent = data.length;
+      const tbody = document.getElementById("users-body");
+      tbody.innerHTML = "";
+      if (!data.length) { document.getElementById("users-empty").classList.remove("hidden"); return; }
+      data.forEach(u => {
+        const tr = document.createElement("tr");
+        const roleBadge = u.role === "admin"
+          ? `<span class="badge" style="background:#fef9c3;color:#a16207;">👑 Admin</span>`
+          : `<span class="badge badge-gray">👤 Usuario</span>`;
+        tr.innerHTML = `
+          <td><strong>${u.username}</strong>${u.is_staff ? ' <span class="badge badge-yellow">staff</span>' : ''}</td>
+          <td style="color:#64748b;">${u.email || '—'}</td>
+          <td>${roleBadge}</td>
+          <td>
+            <select onchange="changeRole(${u.id}, this.value)" style="font-size:.8rem;border:1.5px solid #e2e8f0;border-radius:.5rem;padding:.25rem .5rem;cursor:pointer;">
+              <option value="usuario" ${u.role==='usuario'?'selected':''}>👤 Usuario</option>
+              <option value="admin"   ${u.role==='admin'  ?'selected':''}>👑 Admin</option>
+            </select>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+}
+
+function changeRole(userId, newRole) {
+  fetch(`${API_BASE}admin/users/`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ user_id: userId, role: newRole }),
+  })
+    .then(r => r.json())
+    .then(() => loadUsers())
+    .catch(() => alert("Error al cambiar el rol."));
+}
+
+// ── Canchas ──
+function loadCanchas() {
+  fetch(`${API_BASE}canchas/`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById("stat-canchas").textContent = data.length;
+      const tbody = document.getElementById("canchas-body");
+      tbody.innerHTML = "";
+      if (!data.length) { document.getElementById("canchas-empty").classList.remove("hidden"); return; }
+      data.forEach(c => {
+        const tipo = c.tipo || "otro";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${c.nombre}</td>
+          <td><span class="badge" style="background:${SPORT_BG[tipo]};color:${SPORT_CL[tipo]};">${SPORT_ICONS[tipo]} ${c.tipo_display}</span></td>
+          <td><button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:none;" onclick="deleteCancha(${c.id})">Eliminar</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+}
+
+// Preview imagen en admin
+document.getElementById("cancha-imagen").addEventListener("change", function() {
+  const wrap = document.getElementById("admin-img-preview-wrap");
+  const prev = document.getElementById("admin-img-preview");
+  if (this.files[0]) {
+    const r = new FileReader();
+    r.onload = e => { prev.src = e.target.result; wrap.style.display = "block"; };
+    r.readAsDataURL(this.files[0]);
+  } else { wrap.style.display = "none"; }
+});
+
+document.getElementById("cancha-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const nombre  = document.getElementById("cancha-nombre").value.trim();
+  const tipo    = document.getElementById("cancha-tipo").value;
+  const imgFile = document.getElementById("cancha-imagen").files[0];
+  const btn     = document.getElementById("admin-cancha-btn");
+  const formData = new FormData();
+  formData.append("nombre", nombre);
+  formData.append("tipo", tipo);
+  if (imgFile) formData.append("imagen", imgFile);
+  btn.innerHTML = '<span class="spinner" style="border-color:white;border-top-color:transparent;width:14px;height:14px;"></span>';
+  btn.disabled  = true;
+  fetch(`${API_BASE}canchas/`, {
+    method:"POST",
+    headers: { Authorization: `Token ${getToken()}` },
+    body: formData,
+  })
+    .then(async r => { const d=await r.json(); if(!r.ok) throw new Error(Object.values(d).flat().join(" ")); return d; })
+    .then(() => {
+      document.getElementById("cancha-success").textContent = "✅ Cancha agregada.";
+      document.getElementById("cancha-success").classList.remove("hidden");
+      document.getElementById("cancha-alert").classList.add("hidden");
+      document.getElementById("cancha-form").reset();
+      document.getElementById("admin-img-preview-wrap").style.display = "none";
+      setTimeout(() => document.getElementById("cancha-success").classList.add("hidden"), 3000);
+      loadCanchas();
+    })
+    .catch(err => { document.getElementById("cancha-alert").textContent = err.message; document.getElementById("cancha-alert").classList.remove("hidden"); })
+    .finally(() => { btn.innerHTML = "Agregar"; btn.disabled = false; });
+});
+
+function deleteCancha(id) {
+  if (!confirm("¿Eliminar esta cancha?")) return;
+  fetch(`${API_BASE}canchas/${id}/`, { method:"DELETE", headers: authHeaders() })
+    .then(() => loadCanchas());
+}
+
+// ── Clientes ──
+function loadClientes() {
+  fetch(`${API_BASE}clientes/`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById("stat-clientes").textContent = data.length;
+      const tbody = document.getElementById("clientes-body");
+      tbody.innerHTML = "";
+      if (!data.length) { document.getElementById("clientes-empty").classList.remove("hidden"); return; }
+      data.forEach(c => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${c.nombre}</td>
+          <td style="color:#64748b;">${c.email}</td>
+          <td><button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:none;" onclick="deleteCliente(${c.id})">Eliminar</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+}
+
+document.getElementById("cliente-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const nombre = document.getElementById("cliente-nombre").value.trim();
+  const email  = document.getElementById("cliente-email").value.trim();
+  fetch(`${API_BASE}clientes/`, {
+    method:"POST", headers: authHeaders(),
+    body: JSON.stringify({ nombre, email }),
+  })
+    .then(async r => { const d=await r.json(); if(!r.ok) throw new Error(Object.values(d).flat().join(" ")); return d; })
+    .then(() => {
+      document.getElementById("cliente-success").textContent = "✅ Cliente agregado.";
+      document.getElementById("cliente-success").classList.remove("hidden");
+      document.getElementById("cliente-alert").classList.add("hidden");
+      document.getElementById("cliente-form").reset();
+      setTimeout(() => document.getElementById("cliente-success").classList.add("hidden"), 3000);
+      loadClientes();
+    })
+    .catch(err => { document.getElementById("cliente-alert").textContent = err.message; document.getElementById("cliente-alert").classList.remove("hidden"); });
+});
+
+function deleteCliente(id) {
+  if (!confirm("¿Eliminar este cliente?")) return;
+  fetch(`${API_BASE}clientes/${id}/`, { method:"DELETE", headers: authHeaders() })
+    .then(() => loadClientes());
+}
+
+// ── Reservas ──
+function loadReservas() {
+  fetch(`${API_BASE}reservas/`, { headers: authHeaders() })
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById("stat-reservas").textContent = data.length;
+      const tbody = document.getElementById("reservas-body");
+      tbody.innerHTML = "";
+      if (!data.length) { document.getElementById("reservas-empty").classList.remove("hidden"); return; }
+      data.forEach(rv => {
+        const tipo = rv.cancha_tipo_key || "otro";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${rv.cliente_nombre}</td>
+          <td>
+            <span style="display:inline-flex;align-items:center;gap:.4rem;">
+              <span style="background:${SPORT_BG[tipo]};color:${SPORT_CL[tipo]};padding:.15rem .4rem;border-radius:.4rem;font-size:.8rem;">${SPORT_ICONS[tipo]}</span>
+              ${rv.cancha_nombre}
+            </span>
+          </td>
+          <td style="font-weight:600;color:#1e40af;">${rv.fecha}</td>
+          <td style="font-family:monospace;font-size:.82rem;">${rv.hora_inicio} – ${rv.hora_fin}</td>
+          <td><span class="badge badge-gray">${rv.creado_por_username || '—'}</span></td>
+          <td><button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:none;" onclick="deleteReserva(${rv.id})">Eliminar</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+}
+
+function deleteReserva(id) {
+  if (!confirm("¿Eliminar esta reserva?")) return;
+  fetch(`${API_BASE}reservas/${id}/`, { method:"DELETE", headers: authHeaders() })
+    .then(() => loadReservas());
+}
+</script>
+{% endblock %}

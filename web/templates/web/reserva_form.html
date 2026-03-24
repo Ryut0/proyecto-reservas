@@ -1,0 +1,293 @@
+{% extends "web/base.html" %}
+{% block title %}Nueva Reserva — Reservas Deportivas{% endblock %}
+{% block nav_nueva %}active{% endblock %}
+
+{% block content %}
+
+<div class="section-header slide-up">
+  <div>
+    <h1 class="section-title">Nueva reserva</h1>
+    <p class="section-subtitle">Completa los datos para confirmar tu horario.</p>
+  </div>
+  <a class="btn btn-outline" href="/reservas/">← Mis reservas</a>
+</div>
+
+<div id="form-alert"   class="alert alert-danger  hidden" style="margin-bottom:1rem;"></div>
+<div id="login-hint"   class="alert alert-warning hidden" style="margin-bottom:1rem;"></div>
+
+<!-- Modal de éxito -->
+<div id="success-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:1.25rem;padding:2.5rem 2rem;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:popIn .3s ease;">
+    <div style="font-size:3.5rem;margin-bottom:1rem;">🎉</div>
+    <h2 style="font-size:1.4rem;font-weight:800;color:#050d1a;margin-bottom:.5rem;">¡Reserva confirmada!</h2>
+    <p style="color:#64748b;font-size:.9rem;margin-bottom:1.5rem;" id="modal-detalle"></p>
+    <div style="background:#f0fdf4;border-radius:.875rem;padding:1rem;margin-bottom:1.5rem;">
+      <div style="font-size:.75rem;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem;">💰 Total a pagar</div>
+      <div id="modal-precio" style="font-size:2rem;font-weight:900;color:#15803d;"></div>
+    </div>
+    <button onclick="cerrarModal()" class="btn btn-primary btn-full">Aceptar</button>
+  </div>
+</div>
+
+<style>
+@keyframes popIn { from { transform:scale(.8); opacity:0; } to { transform:scale(1); opacity:1; } }
+</style>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:1.5rem;align-items:start;" class="slide-up stagger-1">
+
+  <!-- Formulario -->
+  <form id="reserva-form" class="card" style="padding:2rem;">
+
+    <!-- Reserva a nombre de -->
+    <div style="margin-bottom:1.5rem;padding:.875rem 1rem;background:#f0f9ff;border-radius:.875rem;border-left:3px solid var(--c-azure);display:flex;align-items:center;gap:.75rem;">
+      <span style="font-size:1.4rem;">👤</span>
+      <div>
+        <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#0369a1;">Reserva a nombre de</div>
+        <div id="usuario-label" style="font-weight:700;color:#050d1a;font-size:.95rem;">—</div>
+      </div>
+    </div>
+
+    <!-- Paso 1 -->
+    <div style="margin-bottom:1.5rem;">
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;">
+        <span style="width:20px;height:20px;background:var(--c-azure);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:.65rem;">1</span>
+        Selecciona la cancha
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cancha</label>
+        <select class="form-select" id="cancha-select" required onchange="actualizarResumen()">
+          <option value="">Cargando…</option>
+        </select>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Paso 2 -->
+    <div style="margin-bottom:1.5rem;">
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;">
+        <span style="width:20px;height:20px;background:var(--c-azure);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:.65rem;">2</span>
+        Fecha y horario
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label class="form-label">Fecha</label>
+          <input class="form-control" type="date" id="fecha-input" required oninput="actualizarResumen()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hora inicio</label>
+          <input class="form-control" type="time" id="hora-inicio-input" required oninput="actualizarResumen()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hora fin</label>
+          <input class="form-control" type="time" id="hora-fin-input" required oninput="actualizarResumen()" />
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+    <button class="btn btn-primary btn-full btn-lg" type="submit" id="submit-btn">✅ Confirmar reserva</button>
+  </form>
+
+  <!-- Panel resumen -->
+  <div style="position:sticky;top:5rem;">
+    <div class="card-soft" style="padding:1.5rem;margin-bottom:1rem;">
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:1.25rem;">Resumen</div>
+      <div style="display:flex;align-items:center;gap:.75rem;padding:.875rem;background:#f8faff;border-radius:.875rem;margin-bottom:.875rem;">
+        <span id="resumen-icon" style="font-size:1.75rem;">🏟️</span>
+        <div>
+          <div id="resumen-nombre" style="font-weight:700;color:#050d1a;font-size:.95rem;">—</div>
+          <div id="resumen-tipo"   style="font-size:.78rem;color:#94a3b8;margin-top:.1rem;">Selecciona una cancha</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.6rem;">
+        <div style="display:flex;justify-content:space-between;font-size:.85rem;">
+          <span style="color:#94a3b8;">📅 Fecha</span>
+          <span id="resumen-fecha" style="font-weight:600;color:#1e40af;">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.85rem;">
+          <span style="color:#94a3b8;">🕐 Horario</span>
+          <span id="resumen-horario" style="font-weight:600;font-family:monospace;font-size:.82rem;">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.85rem;">
+          <span style="color:#94a3b8;">⏱ Duración</span>
+          <span id="resumen-duracion" style="font-weight:600;">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.85rem;">
+          <span style="color:#94a3b8;">💵 Precio/hora</span>
+          <span id="resumen-precio-hora" style="font-weight:600;color:#059669;">—</span>
+        </div>
+        <hr style="border:none;border-top:1px dashed #e2e8f0;margin:.25rem 0;">
+        <div style="display:flex;justify-content:space-between;font-size:1rem;">
+          <span style="font-weight:700;color:#050d1a;">💰 Total</span>
+          <span id="resumen-total" style="font-weight:800;color:#15803d;font-size:1.1rem;">—</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-soft" style="padding:1.25rem;">
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:.875rem;">💡 Tips</div>
+      <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem;">
+        <li style="font-size:.8rem;color:#64748b;">• Llega 10 min antes de tu horario</li>
+        <li style="font-size:.8rem;color:#64748b;">• Verifica disponibilidad antes de reservar</li>
+        <li style="font-size:.8rem;color:#64748b;">• Contacta al admin para cancelaciones</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<style>
+  @media (max-width:768px) {
+    div[style*="grid-template-columns:1fr 320px"] { grid-template-columns:1fr !important; }
+    div[style*="grid-template-columns:1fr 1fr 1fr"] { grid-template-columns:1fr !important; }
+  }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SPORT_ICONS = {futbol:'⚽',tenis:'🎾',baloncesto:'🏀',voleibol:'🏐',padel:'🏓',otro:'🏅'};
+
+let canchasData = {};  // id -> cancha completa con precio_por_hora
+
+function formatCOP(valor) {
+  return '$' + Number(valor).toLocaleString('es-CO', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+
+function calcMinutos(ini, fin) {
+  if (!ini || !fin) return 0;
+  const [h1,m1] = ini.split(':').map(Number);
+  const [h2,m2] = fin.split(':').map(Number);
+  return (h2*60+m2) - (h1*60+m1);
+}
+
+function formatDuracion(mins) {
+  if (mins <= 0) return '—';
+  return mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60>0?mins%60+'min':''}`.trim() : `${mins} min`;
+}
+
+function actualizarResumen() {
+  const sel    = document.getElementById('cancha-select');
+  const opt    = sel.options[sel.selectedIndex];
+  const cid    = sel.value;
+  const cancha = canchasData[cid];
+  const tipo   = opt?.dataset?.tipo || 'otro';
+  const fecha  = document.getElementById('fecha-input').value;
+  const ini    = document.getElementById('hora-inicio-input').value;
+  const fin    = document.getElementById('hora-fin-input').value;
+  const mins   = calcMinutos(ini, fin);
+  const horas  = mins > 0 ? mins / 60 : 0;
+  const precio = cancha ? cancha.precio_por_hora : 0;
+  const total  = horas * precio;
+
+  document.getElementById('resumen-icon').textContent      = SPORT_ICONS[tipo] || '🏅';
+  document.getElementById('resumen-nombre').textContent    = opt?.dataset?.nombre || '—';
+  document.getElementById('resumen-tipo').textContent      = opt?.dataset?.tipoLabel || 'Selecciona una cancha';
+  document.getElementById('resumen-fecha').textContent     = fecha || '—';
+  document.getElementById('resumen-horario').textContent   = ini && fin ? `${ini} – ${fin}` : '—';
+  document.getElementById('resumen-duracion').textContent  = formatDuracion(mins);
+  document.getElementById('resumen-precio-hora').textContent = cancha ? formatCOP(precio) + '/h' : '—';
+  document.getElementById('resumen-total').textContent     = total > 0 ? formatCOP(total) : '—';
+}
+
+function cerrarModal() {
+  document.getElementById('success-modal').style.display = 'none';
+  document.getElementById('reserva-form').reset();
+  actualizarResumen();
+}
+
+function showError(msg) {
+  const a = document.getElementById('form-alert');
+  a.textContent = msg;
+  a.classList.remove('hidden');
+}
+function hideError() {
+  document.getElementById('form-alert').classList.add('hidden');
+}
+function setEnabled(en) {
+  document.getElementById('reserva-form').querySelectorAll('input,select,button').forEach(f => f.disabled = !en);
+}
+
+// Verificar sesión
+const token    = getToken();
+const username = localStorage.getItem('username') || '(usuario)';
+document.getElementById('usuario-label').textContent = username;
+
+if (!token) {
+  const h = document.getElementById('login-hint');
+  h.innerHTML = "⚠️ Necesitas iniciar sesión para crear una reserva. <a href='/login/' style='font-weight:700;text-decoration:underline;'>Ir a login</a>.";
+  h.classList.remove('hidden');
+  setEnabled(false);
+}
+
+// Cargar canchas
+fetch(`${API_BASE}canchas/`)
+  .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+  .then(canchas => {
+    const cc = document.getElementById('cancha-select');
+    cc.innerHTML = '<option value="">— Selecciona una cancha —</option>';
+    canchas.forEach(c => {
+      canchasData[c.id] = c;
+      const o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = `${SPORT_ICONS[c.tipo]||'🏅'} ${c.nombre} — ${c.tipo_display} | ${formatCOP(c.precio_por_hora)}/h`;
+      o.dataset.tipo      = c.tipo;
+      o.dataset.nombre    = c.nombre;
+      o.dataset.tipoLabel = c.tipo_display;
+      cc.appendChild(o);
+    });
+  })
+  .catch(() => showError('Error cargando canchas. Verifica el servidor.'));
+
+// Submit
+document.getElementById('reserva-form').addEventListener('submit', e => {
+  e.preventDefault();
+  hideError();
+  const t = getToken();
+  if (!t) { showError('Debes iniciar sesión para crear una reserva.'); return; }
+
+  const ini = document.getElementById('hora-inicio-input').value;
+  const fin = document.getElementById('hora-fin-input').value;
+  if (ini >= fin) { showError('La hora de inicio debe ser anterior a la hora de fin.'); return; }
+
+  const cid    = document.getElementById('cancha-select').value;
+  const cancha = canchasData[cid];
+  const mins   = calcMinutos(ini, fin);
+  const total  = cancha ? (mins / 60) * cancha.precio_por_hora : 0;
+  const fecha  = document.getElementById('fecha-input').value;
+
+  const btn = document.getElementById('submit-btn');
+  btn.innerHTML = '<span class="spinner" style="border-color:white;border-top-color:transparent;"></span> Guardando…';
+  btn.disabled = true;
+
+  fetch(`${API_BASE}reservas/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Token ${t}` },
+    body: JSON.stringify({
+      cancha:      cid,
+      fecha:       fecha,
+      hora_inicio: ini,
+      hora_fin:    fin,
+    }),
+  })
+    .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(Object.values(d).flat().join(' ')); return d; })
+    .then(data => {
+      // Mostrar modal de éxito
+      const precioFinal = data.precio_total || total;
+      const duracion    = formatDuracion(mins);
+      document.getElementById('modal-detalle').textContent =
+        `${cancha?.nombre || 'Cancha'} · ${fecha} · ${ini} – ${fin} (${duracion})`;
+      document.getElementById('modal-precio').textContent = formatCOP(precioFinal);
+      document.getElementById('success-modal').style.display = 'flex';
+
+      btn.innerHTML = '✅ Confirmar reserva';
+      btn.disabled  = false;
+    })
+    .catch(err => {
+      showError(err.message);
+      btn.innerHTML = '✅ Confirmar reserva';
+      btn.disabled  = false;
+    });
+});
+</script>
+{% endblock %}

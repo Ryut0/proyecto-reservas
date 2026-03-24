@@ -1,0 +1,210 @@
+{% extends "web/base.html" %}
+{% block title %}Mis Reservas — Reservas Deportivas{% endblock %}
+{% block nav_reservas %}active{% endblock %}
+
+{% block content %}
+
+<div class="section-header slide-up">
+  <div>
+    <h1 class="section-title"><span id="page-title">Mis reservas</span></h1>
+    <p class="section-subtitle" id="page-subtitle">Consulta y gestiona tus horarios activos.</p>
+  </div>
+  <a class="btn btn-primary" href="/reservas/nueva/">+ Nueva reserva</a>
+</div>
+
+<!-- Stats -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.75rem;" class="slide-up stagger-1">
+  <div class="card-soft stat-card">
+    <div class="stat-label">Total reservas</div>
+    <div class="stat-value" id="stat-total">—</div>
+    <div class="stat-trend" id="stat-total-sub">cargando…</div>
+  </div>
+  <div class="card-soft stat-card">
+    <div class="stat-label">Próxima fecha</div>
+    <div class="stat-value" id="stat-proxima" style="font-size:1.3rem;">—</div>
+    <div class="stat-trend" id="stat-proxima-sub">cargando…</div>
+  </div>
+  <div class="card-soft stat-card">
+    <div class="stat-label">Canchas distintas</div>
+    <div class="stat-value" id="stat-canchas">—</div>
+    <div class="stat-trend">usadas</div>
+  </div>
+  <div class="card-soft stat-card">
+    <div class="stat-label">Total gastado</div>
+    <div class="stat-value" id="stat-gasto" style="font-size:1.1rem;">—</div>
+    <div class="stat-trend">en reservas</div>
+  </div>
+</div>
+
+<div id="reservas-alert" class="alert alert-info hidden" style="margin-bottom:1rem;"></div>
+<div id="reservas-loading" style="display:flex;align-items:center;justify-content:center;gap:.75rem;padding:3.5rem;color:#94a3b8;">
+  <span class="spinner"></span>
+  <span style="font-size:.875rem;">Cargando reservas…</span>
+</div>
+
+<div class="card" style="padding:.25rem;display:none;" id="reservas-card">
+  <div style="padding:1rem 1.5rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:.75rem;">
+    <input id="search-input" class="form-control" style="max-width:280px;padding:.5rem .875rem;font-size:.85rem;"
+           type="text" placeholder="🔍  Buscar por usuario o cancha…" oninput="filtrarReservas()" />
+    <span id="reservas-count" style="font-size:.78rem;color:#94a3b8;margin-left:auto;"></span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Usuario</th>
+        <th>Cancha</th>
+        <th>Fecha</th>
+        <th>Horario</th>
+        <th>Duración</th>
+        <th>💰 Total</th>
+        <th id="col-creado" style="display:none;">Creado por</th>
+        <th id="col-accion" style="display:none;">Acción</th>
+      </tr>
+    </thead>
+    <tbody id="reservas-body"></tbody>
+  </table>
+  <div id="reservas-empty" class="empty-state hidden">
+    <div class="empty-state-icon">📅</div>
+    <p class="empty-state-title">Sin reservas aún</p>
+    <p class="empty-state-desc">Crea tu primera reserva y aparecerá aquí.</p>
+    <a class="btn btn-primary btn-sm" href="/reservas/nueva/" style="margin-top:1rem;">Crear reserva</a>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SPORT_ICONS = {futbol:'⚽',tenis:'🎾',baloncesto:'🏀',voleibol:'🏐',padel:'🏓',otro:'🏅'};
+const SPORT_BG    = {futbol:'#dcfce7',tenis:'#fef9c3',baloncesto:'#ffedd5',voleibol:'#ede9fe',padel:'#cffafe',otro:'#f1f5f9'};
+const SPORT_CL    = {futbol:'#15803d',tenis:'#a16207',baloncesto:'#c2410c',voleibol:'#7c3aed',padel:'#0e7490',otro:'#475569'};
+
+let allReservas = [];
+
+function formatCOP(valor) {
+  if (!valor && valor !== 0) return '—';
+  return '$' + Number(valor).toLocaleString('es-CO', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+
+function calcDuracion(inicio, fin) {
+  const [h1,m1] = inicio.split(':').map(Number);
+  const [h2,m2] = fin.split(':').map(Number);
+  const mins = (h2*60+m2) - (h1*60+m1);
+  if (mins <= 0) return '—';
+  return mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60>0?mins%60+'min':''}`.trim() : `${mins} min`;
+}
+
+function renderReservas(list) {
+  const tbody   = document.getElementById('reservas-body');
+  const empty   = document.getElementById('reservas-empty');
+  const count   = document.getElementById('reservas-count');
+  const isAdmin = getRole() === 'admin';
+  tbody.innerHTML = '';
+  count.textContent = list.length ? `${list.length} resultado${list.length!==1?'s':''}` : '';
+  if (!list.length) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  list.forEach(rv => {
+    const tipo = rv.cancha_tipo_key || 'otro';
+    const bg   = SPORT_BG[tipo] || SPORT_BG.otro;
+    const cl   = SPORT_CL[tipo] || SPORT_CL.otro;
+    const dur  = calcDuracion(rv.hora_inicio, rv.hora_fin);
+    const tr   = document.createElement('tr');
+    tr.innerHTML = `
+      <td><div style="font-weight:600;color:#050d1a;">👤 ${rv.creado_por_username || rv.cliente_nombre || '—'}</div></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:.5rem;">
+          <span style="width:28px;height:28px;border-radius:.5rem;background:${bg};color:${cl};display:inline-flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;">${SPORT_ICONS[tipo]||'🏅'}</span>
+          <div>
+            <div style="font-weight:600;color:#0f172a;font-size:.875rem;">${rv.cancha_nombre}</div>
+            <div style="font-size:.75rem;color:#94a3b8;">${rv.cancha_tipo}</div>
+          </div>
+        </div>
+      </td>
+      <td><span style="font-weight:600;color:#1e40af;background:#eff6ff;padding:.2rem .6rem;border-radius:.5rem;font-size:.82rem;">${rv.fecha}</span></td>
+      <td style="font-family:monospace;font-size:.85rem;color:#374151;">${rv.hora_inicio} – ${rv.hora_fin}</td>
+      <td><span class="badge badge-gray">${dur}</span></td>
+      <td><span style="font-weight:700;color:#15803d;">${formatCOP(rv.precio_total)}</span></td>
+      ${isAdmin ? `<td><span class="badge badge-gray">${rv.creado_por_username||'—'}</span></td>` : ''}
+      ${isAdmin ? `<td><button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:none;" onclick="deleteReserva(${rv.id})">Eliminar</button></td>` : ''}
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function filtrarReservas() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  renderReservas(allReservas.filter(rv =>
+    (rv.creado_por_username||'').toLowerCase().includes(q) ||
+    (rv.cliente_nombre||'').toLowerCase().includes(q) ||
+    rv.cancha_nombre.toLowerCase().includes(q)
+  ));
+}
+
+function deleteReserva(id) {
+  if (!confirm('¿Eliminar esta reserva?')) return;
+  fetch(`${API_BASE}reservas/${id}/`, {
+    method: 'DELETE',
+    headers: { Authorization: `Token ${getToken()}` }
+  }).then(() => {
+    allReservas = allReservas.filter(r => r.id !== id);
+    renderReservas(allReservas);
+    document.getElementById('stat-total').textContent = allReservas.length;
+    const totalGasto = allReservas.reduce((s, r) => s + (parseFloat(r.precio_total)||0), 0);
+    document.getElementById('stat-gasto').textContent = formatCOP(totalGasto);
+  });
+}
+
+function loadReservas() {
+  const token   = getToken();
+  const isAdmin = getRole() === 'admin';
+
+  if (isAdmin) {
+    document.getElementById('page-title').textContent    = 'Todas las reservas';
+    document.getElementById('page-subtitle').textContent = 'Vista de administrador — todas las reservas del sistema.';
+    document.getElementById('stat-total-sub').textContent = 'en el sistema';
+    document.getElementById('col-creado').style.display = '';
+    document.getElementById('col-accion').style.display = '';
+  }
+
+  if (!token) {
+    document.getElementById('reservas-loading').style.display = 'none';
+    document.getElementById('reservas-card').style.display    = 'block';
+    const al = document.getElementById('reservas-alert');
+    al.innerHTML = "⚠️ Debes iniciar sesión para ver tus reservas. <a href='/login/' style='font-weight:700;text-decoration:underline;'>Ir a login</a>.";
+    al.classList.remove('hidden'); al.classList.add('alert-warning'); al.classList.remove('alert-info');
+    return;
+  }
+
+  fetch(`${API_BASE}reservas/`, { headers: { Authorization: `Token ${token}` } })
+    .then(r => { if (!r.ok) throw new Error('Error al cargar'); return r.json(); })
+    .then(data => {
+      allReservas = data;
+      document.getElementById('reservas-loading').style.display = 'none';
+      document.getElementById('reservas-card').style.display    = 'block';
+
+      document.getElementById('stat-total').textContent   = data.length;
+      document.getElementById('stat-canchas').textContent = new Set(data.map(r => r.cancha_nombre)).size;
+
+      const totalGasto = data.reduce((s, r) => s + (parseFloat(r.precio_total)||0), 0);
+      document.getElementById('stat-gasto').textContent = formatCOP(totalGasto);
+
+      const hoy  = new Date().toISOString().split('T')[0];
+      const prox = data.filter(r => r.fecha >= hoy).sort((a,b) => a.fecha.localeCompare(b.fecha))[0];
+      document.getElementById('stat-proxima').textContent     = prox ? prox.fecha         : 'N/A';
+      document.getElementById('stat-proxima-sub').textContent = prox ? prox.cancha_nombre : 'sin próximas';
+
+      renderReservas(data);
+    })
+    .catch(() => {
+      document.getElementById('reservas-loading').style.display = 'none';
+      document.getElementById('reservas-card').style.display    = 'block';
+      const al = document.getElementById('reservas-alert');
+      al.textContent = 'Error al cargar reservas. Verifica tu sesión.';
+      al.classList.remove('hidden','alert-info'); al.classList.add('alert-danger');
+    });
+}
+
+loadReservas();
+</script>
+{% endblock %}

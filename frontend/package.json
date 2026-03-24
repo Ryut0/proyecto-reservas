@@ -1,0 +1,14 @@
+{
+  "name": "reservas-frontend",
+  "version": "1.0.0",
+  "description": "Frontend assets — Tailwind CSS build pipeline para Reservas Deportivas",
+  "private": true,
+  "scripts": {
+    "dev":   "tailwindcss -c tailwind.config.js -i ./css/styles.css -o ./dist/main.css --watch",
+    "build": "tailwindcss -c tailwind.config.js -i ./css/styles.css -o ./dist/main.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.7",
+    "tailwindcss": "^3.4.4"
+  }
+}
